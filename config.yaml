@@ -1,0 +1,27 @@
+alpaca:
+  api_key: ""            # or env APCA_API_KEY_ID
+  api_secret: ""         # or env APCA_API_SECRET_KEY
+  base_url: "https://paper-api.alpaca.markets"
+  feed: "iex"
+
+trading:
+  initial_cash: 10000.00
+  poll_interval_sec: 60
+  max_position_pct: 0.10
+  max_positions: 5
+  watchlist: [AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA, BRK.B, JPM, V,
+              UNH, JNJ, XOM, PG, MA, HD, CVX, MRK, ABBV, PEP]
+
+strategy:
+  rsi_period: 14
+  rsi_oversold: 30.0
+  rsi_overbought: 70.0
+  macd_fast_period: 12
+  macd_slow_period: 26
+  macd_signal_period: 9
+
+storage:
+  db_path: "tradebot.db"
+
+web:
+  addr: ":8080"

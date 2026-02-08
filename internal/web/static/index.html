@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeBot Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f1117;color:#e1e4e8;min-height:100vh}
+  header{background:#161b22;padding:12px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #30363d}
+  header h1{font-size:1.2rem;font-weight:600;color:#58a6ff}
+  #status-badge{font-size:0.8rem;padding:4px 10px;border-radius:12px;background:#238636;color:#fff}
+  #status-badge.offline{background:#da3633}
+  .grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:16px;padding:16px;max-width:1400px;margin:0 auto}
+  .panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;min-height:200px}
+  .panel h2{font-size:0.95rem;color:#8b949e;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+  .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .metric{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:12px}
+  .metric .label{font-size:0.75rem;color:#8b949e;margin-bottom:4px}
+  .metric .value{font-size:1.4rem;font-weight:700}
+  .pos{color:#3fb950}.neg{color:#f85149}
+  table{width:100%;border-collapse:collapse;font-size:0.85rem}
+  th{text-align:left;color:#8b949e;font-weight:500;padding:6px 8px;border-bottom:1px solid #30363d}
+  td{padding:6px 8px;border-bottom:1px solid #21262d}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600}
+  .badge-buy{background:#0e4429;color:#3fb950}
+  .badge-sell{background:#490c0c;color:#f85149}
+  .badge-hold{background:#1c1e23;color:#8b949e}
+  .badge-held{background:#0c2d6b;color:#58a6ff}
+  canvas{max-height:260px}
+  .uptime{font-size:0.8rem;color:#8b949e}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>TradeBot Dashboard</h1>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="uptime" id="uptime"></span>
+    <span id="status-badge">Running</span>
+  </div>
+</header>
+<div class="grid">
+  <div class="panel" id="portfolio-panel">
+    <h2>Portfolio Summary</h2>
+    <div class="summary-grid">
+      <div class="metric"><div class="label">Cash</div><div class="value" id="m-cash">--</div></div>
+      <div class="metric"><div class="label">Total Value</div><div class="value" id="m-total">--</div></div>
+      <div class="metric"><div class="label">Unrealized P&amp;L</div><div class="value" id="m-pnl">--</div></div>
+      <div class="metric"><div class="label">Positions</div><div class="value" id="m-positions">--</div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Portfolio Value</h2>
+    <canvas id="pnl-chart"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Trade History</h2>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Side</th><th>Symbol</th><th>Qty</th><th>Price</th><th>Total</th><th>Reason</th><th>Time</th></tr></thead>
+      <tbody id="trades-body"></tbody>
+    </table></div>
+  </div>
+  <div class="panel">
+    <h2>Watchlist</h2>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Symbol</th><th>RSI</th><th>MACD</th><th>Signal</th><th>Status</th></tr></thead>
+      <tbody id="watchlist-body"></tbody>
+    </table></div>
+  </div>
+</div>
+<script>
+const fmt = (n) => n == null ? '--' : '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtPL = (n, el) => { el.textContent = fmt(n); el.className = 'value ' + (n >= 0 ? 'pos' : 'neg'); };
+const fmtTime = (t) => { const d = new Date(t); return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); };
+
+let chart = null;
+function initChart() {
+  const ctx = document.getElementById('pnl-chart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Total Value', data: [], borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#8b949e', maxTicksLimit: 8 }, grid: { color: '#21262d' } },
+        y: { ticks: { color: '#8b949e', callback: v => '$' + v.toLocaleString() }, grid: { color: '#21262d' } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+async function fetchJSON(url) { const r = await fetch(url); return r.json(); }
+
+async function updatePortfolio() {
+  try {
+    const d = await fetchJSON('/api/portfolio');
+    document.getElementById('m-cash').textContent = fmt(d.cash);
+    document.getElementById('m-total').textContent = fmt(d.total_value);
+    document.getElementById('m-positions').textContent = d.positions ? d.positions.length : 0;
+    let totalPL = 0;
+    if (d.positions) d.positions.forEach(p => totalPL += p.unrealized_pl);
+    fmtPL(totalPL, document.getElementById('m-pnl'));
+  } catch(e) { console.error('portfolio error', e); }
+}
+
+async function updateHistory() {
+  try {
+    const d = await fetchJSON('/api/portfolio/history');
+    if (!chart) return;
+    chart.data.labels = d.map(s => fmtTime(s.timestamp));
+    chart.data.datasets[0].data = d.map(s => s.total_value);
+    chart.update('none');
+  } catch(e) { console.error('history error', e); }
+}
+
+async function updateTrades() {
+  try {
+    const d = await fetchJSON('/api/trades');
+    const tb = document.getElementById('trades-body');
+    tb.innerHTML = '';
+    (d || []).forEach(t => {
+      const cls = t.side === 'buy' ? 'badge-buy' : 'badge-sell';
+      tb.innerHTML += `<tr>
+        <td><span class="badge ${cls}">${t.side.toUpperCase()}</span></td>
+        <td>${t.symbol}</td><td>${t.qty}</td>
+        <td>${fmt(t.price)}</td><td>${fmt(t.total)}</td>
+        <td>${t.reason || '-'}</td><td>${fmtTime(t.timestamp)}</td></tr>`;
+    });
+    if (!d || d.length === 0) tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8b949e">No trades yet</td></tr>';
+  } catch(e) { console.error('trades error', e); }
+}
+
+async function updateWatchlist() {
+  try {
+    const d = await fetchJSON('/api/watchlist');
+    const tb = document.getElementById('watchlist-body');
+    tb.innerHTML = '';
+    (d || []).forEach(w => {
+      const sCls = w.signal === 'buy' ? 'badge-buy' : w.signal === 'sell' ? 'badge-sell' : 'badge-hold';
+      const held = w.held ? '<span class="badge badge-held">HELD</span>' : '';
+      tb.innerHTML += `<tr>
+        <td>${w.symbol} ${held}</td>
+        <td>${w.rsi ? w.rsi.toFixed(1) : '--'}</td>
+        <td>${w.macd ? w.macd.toFixed(4) : '--'}</td>
+        <td><span class="badge ${sCls}">${w.signal.toUpperCase()}</span></td>
+        <td>${w.held ? 'Holding' : '-'}</td></tr>`;
+    });
+    if (!d || d.length === 0) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8b949e">Waiting for data...</td></tr>';
+  } catch(e) { console.error('watchlist error', e); }
+}
+
+async function updateStatus() {
+  try {
+    const d = await fetchJSON('/api/status');
+    const badge = document.getElementById('status-badge');
+    badge.textContent = d.running ? 'Running' : 'Stopped';
+    badge.className = d.running ? '' : 'offline';
+    badge.id = 'status-badge';
+    document.getElementById('uptime').textContent = 'Uptime: ' + (d.uptime || '--');
+  } catch(e) { console.error('status error', e); }
+}
+
+async function refresh() {
+  await Promise.all([updatePortfolio(), updateHistory(), updateTrades(), updateWatchlist(), updateStatus()]);
+}
+
+initChart();
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
