@@ -11,6 +11,7 @@ import (
 	"github.com/rohithbv/tradebot/internal/config"
 	"github.com/rohithbv/tradebot/internal/market"
 	"github.com/rohithbv/tradebot/internal/model"
+	"github.com/rohithbv/tradebot/internal/notification"
 	"github.com/rohithbv/tradebot/internal/storage"
 	"github.com/rohithbv/tradebot/internal/strategy"
 )
@@ -23,6 +24,7 @@ type Engine struct {
 	strategy strategy.Strategy
 	store    storage.Store
 	cfg      *config.Config
+	notifier notification.Notifier
 
 	mu           sync.RWMutex
 	lastAnalyses map[string]model.Analysis
@@ -32,13 +34,14 @@ type Engine struct {
 }
 
 // New creates a new trading engine with the given dependencies.
-func New(mkt *market.MarketClient, brk *broker.PaperBroker, strat strategy.Strategy, store storage.Store, cfg *config.Config) *Engine {
+func New(mkt *market.MarketClient, brk *broker.PaperBroker, strat strategy.Strategy, store storage.Store, cfg *config.Config, notifier notification.Notifier) *Engine {
 	return &Engine{
 		market:       mkt,
 		broker:       brk,
 		strategy:     strat,
 		store:        store,
 		cfg:          cfg,
+		notifier:     notifier,
 		lastAnalyses: make(map[string]model.Analysis),
 	}
 }
@@ -203,6 +206,9 @@ func (e *Engine) tick(ctx context.Context) error {
 					"total", trade.Total,
 					"reason", trade.Reason,
 				)
+				if e.notifier != nil {
+					go e.notifier.NotifyTrade(*trade)
+				}
 			}
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/rohithbv/tradebot/internal/config"
 	"github.com/rohithbv/tradebot/internal/engine"
 	"github.com/rohithbv/tradebot/internal/market"
+	"github.com/rohithbv/tradebot/internal/notification"
 	"github.com/rohithbv/tradebot/internal/storage"
 	"github.com/rohithbv/tradebot/internal/strategy"
 	"github.com/rohithbv/tradebot/internal/web"
@@ -58,7 +59,13 @@ func main() {
 		cfg.Strategy.MACDSignalPeriod,
 	)
 
-	eng := engine.New(mktClient, brk, strat, store, cfg)
+	var notifier notification.Notifier
+	if cfg.Telegram.Enabled && cfg.Telegram.BotToken != "" && cfg.Telegram.ChatID != 0 {
+		notifier = notification.NewTelegramNotifier(cfg.Telegram.BotToken, cfg.Telegram.ChatID)
+		slog.Info("telegram notifications enabled")
+	}
+
+	eng := engine.New(mktClient, brk, strat, store, cfg, notifier)
 
 	webSrv := web.NewServer(cfg.Web, brk, store)
 	webSrv.SetEngine(eng)

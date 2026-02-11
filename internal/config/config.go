@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
@@ -12,7 +13,8 @@ type Config struct {
 	Trading  TradingConfig `yaml:"trading"`
 	Strategy StrategyConfig `yaml:"strategy"`
 	Storage  StorageConfig `yaml:"storage"`
-	Web      WebConfig     `yaml:"web"`
+	Web      WebConfig      `yaml:"web"`
+	Telegram TelegramConfig `yaml:"telegram"`
 }
 
 type AlpacaConfig struct {
@@ -47,6 +49,12 @@ type WebConfig struct {
 	Addr string `yaml:"addr"`
 }
 
+type TelegramConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	BotToken string `yaml:"bot_token"`
+	ChatID   int64  `yaml:"chat_id"`
+}
+
 func Load(path string) (*Config, error) {
 	cfg := &Config{}
 
@@ -74,6 +82,14 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("APCA_API_SECRET_KEY"); v != "" {
 		cfg.Alpaca.APISecret = v
+	}
+	if v := os.Getenv("TELEGRAM_BOT_TOKEN"); v != "" {
+		cfg.Telegram.BotToken = v
+	}
+	if v := os.Getenv("TELEGRAM_CHAT_ID"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			cfg.Telegram.ChatID = id
+		}
 	}
 }
 

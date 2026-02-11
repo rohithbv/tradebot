@@ -25,3 +25,8 @@ storage:
 
 web:
   addr: ":8080"
+
+telegram:
+  enabled: false
+  bot_token: ""   # or env TELEGRAM_BOT_TOKEN
+  chat_id: 0      # or env TELEGRAM_CHAT_ID
