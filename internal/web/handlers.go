@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"log/slog"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -143,8 +144,16 @@ type tradeResponse struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+type paginatedTradesResponse struct {
+	Trades     []tradeResponse `json:"trades"`
+	Total      int             `json:"total"`
+	Page       int             `json:"page"`
+	PerPage    int             `json:"per_page"`
+	TotalPages int             `json:"total_pages"`
+}
+
 func (s *Server) handleTrades(w http.ResponseWriter, r *http.Request) {
-	since := time.Now().Add(-24 * time.Hour)
+	var since time.Time
 	if v := r.URL.Query().Get("since"); v != "" {
 		parsed, err := time.Parse(time.RFC3339, v)
 		if err != nil {
@@ -154,26 +163,52 @@ func (s *Server) handleTrades(w http.ResponseWriter, r *http.Request) {
 		since = parsed
 	}
 
-	limit := 50
-	if v := r.URL.Query().Get("limit"); v != "" {
+	page := 1
+	if v := r.URL.Query().Get("page"); v != "" {
 		parsed, err := strconv.Atoi(v)
 		if err != nil || parsed < 1 {
-			writeError(w, http.StatusBadRequest, "invalid limit parameter: expected positive integer")
+			writeError(w, http.StatusBadRequest, "invalid page parameter: expected positive integer")
 			return
 		}
-		limit = parsed
+		page = parsed
 	}
 
-	trades, err := s.store.GetTrades(since, limit)
+	perPage := 10
+	if v := r.URL.Query().Get("per_page"); v != "" {
+		parsed, err := strconv.Atoi(v)
+		if err != nil || parsed < 1 {
+			writeError(w, http.StatusBadRequest, "invalid per_page parameter: expected positive integer")
+			return
+		}
+		perPage = parsed
+	}
+
+	total, err := s.store.GetTradeCount(since)
+	if err != nil {
+		slog.Error("failed to count trades", "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to get trades")
+		return
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(perPage)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * perPage
+	trades, err := s.store.GetTrades(since, perPage, offset)
 	if err != nil {
 		slog.Error("failed to get trades", "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to get trades")
 		return
 	}
 
-	resp := make([]tradeResponse, 0, len(trades))
+	items := make([]tradeResponse, 0, len(trades))
 	for _, t := range trades {
-		resp = append(resp, tradeResponse{
+		items = append(items, tradeResponse{
 			ID:        t.ID,
 			Symbol:    t.Symbol,
 			Side:      t.Side,
@@ -185,7 +220,13 @@ func (s *Server) handleTrades(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, paginatedTradesResponse{
+		Trades:     items,
+		Total:      total,
+		Page:       page,
+		PerPage:    perPage,
+		TotalPages: totalPages,
+	})
 }
 
 // --------------------------------------------------------------------------

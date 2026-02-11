@@ -13,7 +13,8 @@ import (
 // Store defines the persistence interface for the tradebot.
 type Store interface {
 	SaveTrade(trade model.Trade) error
-	GetTrades(since time.Time, limit int) ([]model.Trade, error)
+	GetTrades(since time.Time, limit, offset int) ([]model.Trade, error)
+	GetTradeCount(since time.Time) (int, error)
 	SaveSnapshot(snap model.PortfolioSnapshot) error
 	GetSnapshots(since time.Time) ([]model.PortfolioSnapshot, error)
 	SaveBars(symbol string, bars []model.Bar) error
@@ -125,15 +126,15 @@ func (s *SQLiteStore) SaveTrade(trade model.Trade) error {
 }
 
 // GetTrades returns up to limit trades with a timestamp >= since, ordered by
-// timestamp descending (most recent first).
-func (s *SQLiteStore) GetTrades(since time.Time, limit int) ([]model.Trade, error) {
+// timestamp descending (most recent first), skipping offset rows.
+func (s *SQLiteStore) GetTrades(since time.Time, limit, offset int) ([]model.Trade, error) {
 	rows, err := s.db.Query(
 		`SELECT id, symbol, side, qty, price, total, reason, timestamp
 		 FROM trades
 		 WHERE timestamp >= ?
 		 ORDER BY timestamp DESC
-		 LIMIT ?`,
-		since.UTC(), limit,
+		 LIMIT ? OFFSET ?`,
+		since.UTC(), limit, offset,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("query trades: %w", err)
@@ -152,6 +153,19 @@ func (s *SQLiteStore) GetTrades(since time.Time, limit int) ([]model.Trade, erro
 		return nil, fmt.Errorf("iterate trades: %w", err)
 	}
 	return trades, nil
+}
+
+// GetTradeCount returns the total number of trades with a timestamp >= since.
+func (s *SQLiteStore) GetTradeCount(since time.Time) (int, error) {
+	var count int
+	err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM trades WHERE timestamp >= ?`,
+		since.UTC(),
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count trades: %w", err)
+	}
+	return count, nil
 }
 
 // ---------------------------------------------------------------------------

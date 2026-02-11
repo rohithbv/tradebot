@@ -43,7 +43,7 @@ func TestSaveAndGetTrades(t *testing.T) {
 		t.Fatalf("SaveTrade: %v", err)
 	}
 
-	trades, err := store.GetTrades(now.Add(-time.Hour), 10)
+	trades, err := store.GetTrades(now.Add(-time.Hour), 10, 0)
 	if err != nil {
 		t.Fatalf("GetTrades: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestGetTradesSince(t *testing.T) {
 	}
 
 	// Filter: only trades at or after base + 1h should return t-2 and t-3.
-	got, err := store.GetTrades(base.Add(1*time.Hour), 10)
+	got, err := store.GetTrades(base.Add(1*time.Hour), 10, 0)
 	if err != nil {
 		t.Fatalf("GetTrades: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestGetTradesSince(t *testing.T) {
 	}
 
 	// Test limit.
-	got, err = store.GetTrades(base, 2)
+	got, err = store.GetTrades(base, 2, 0)
 	if err != nil {
 		t.Fatalf("GetTrades with limit: %v", err)
 	}
