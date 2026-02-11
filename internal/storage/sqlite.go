@@ -20,6 +20,8 @@ type Store interface {
 	GetBars(symbol string, since time.Time) ([]model.Bar, error)
 	SaveState(state model.BrokerState) error
 	LoadState() (*model.BrokerState, error)
+	SaveAnalyses(analyses map[string]model.Analysis) error
+	LoadAnalyses() (map[string]model.Analysis, error)
 	Close() error
 }
 
@@ -319,6 +321,50 @@ func (s *SQLiteStore) LoadState() (*model.BrokerState, error) {
 		return nil, fmt.Errorf("unmarshal broker state: %w", err)
 	}
 	return &state, nil
+}
+
+// ---------------------------------------------------------------------------
+// State (Analyses persistence)
+// ---------------------------------------------------------------------------
+
+const analysesKey = "analyses"
+
+// SaveAnalyses persists the latest strategy analyses as a JSON blob.
+func (s *SQLiteStore) SaveAnalyses(analyses map[string]model.Analysis) error {
+	data, err := json.Marshal(analyses)
+	if err != nil {
+		return fmt.Errorf("marshal analyses: %w", err)
+	}
+
+	_, err = s.db.Exec(
+		`INSERT OR REPLACE INTO state (key, value) VALUES (?, ?)`,
+		analysesKey, string(data),
+	)
+	if err != nil {
+		return fmt.Errorf("upsert analyses: %w", err)
+	}
+	return nil
+}
+
+// LoadAnalyses loads the last saved analyses from the database.
+// If none have been saved yet, it returns (nil, nil).
+func (s *SQLiteStore) LoadAnalyses() (map[string]model.Analysis, error) {
+	var raw string
+	err := s.db.QueryRow(
+		`SELECT value FROM state WHERE key = ?`, analysesKey,
+	).Scan(&raw)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query analyses: %w", err)
+	}
+
+	var analyses map[string]model.Analysis
+	if err := json.Unmarshal([]byte(raw), &analyses); err != nil {
+		return nil, fmt.Errorf("unmarshal analyses: %w", err)
+	}
+	return analyses, nil
 }
 
 // Close closes the underlying database connection.

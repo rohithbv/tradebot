@@ -59,6 +59,17 @@ func (e *Engine) Run(ctx context.Context) error {
 
 	slog.Info("trading engine starting")
 
+	// Restore last analyses from storage so the watchlist is available
+	// immediately (e.g. when the market is closed after a restart).
+	if saved, err := e.store.LoadAnalyses(); err != nil {
+		slog.Error("failed to load saved analyses", "error", err)
+	} else if saved != nil {
+		e.mu.Lock()
+		e.lastAnalyses = saved
+		e.mu.Unlock()
+		slog.Info("restored analyses from storage", "count", len(saved))
+	}
+
 	// Main loop: check market hours and run trading ticks.
 	for {
 		select {
@@ -255,6 +266,17 @@ func (e *Engine) saveState() error {
 	// Save broker state.
 	if err := e.broker.SaveState(); err != nil {
 		return fmt.Errorf("save broker state: %w", err)
+	}
+
+	// Save latest analyses so watchlist survives restarts.
+	e.mu.RLock()
+	analysesCopy := make(map[string]model.Analysis, len(e.lastAnalyses))
+	for k, v := range e.lastAnalyses {
+		analysesCopy[k] = v
+	}
+	e.mu.RUnlock()
+	if err := e.store.SaveAnalyses(analysesCopy); err != nil {
+		return fmt.Errorf("save analyses: %w", err)
 	}
 
 	return nil
