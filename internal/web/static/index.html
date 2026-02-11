@@ -77,6 +77,12 @@
       <div class="metric"><div class="label">Unrealized P&amp;L</div><div class="value" id="m-pnl">--</div></div>
       <div class="metric"><div class="label">Positions</div><div class="value" id="m-positions">--</div></div>
     </div>
+    <div style="overflow-x:auto;margin-top:12px">
+      <table>
+        <thead><tr><th>Symbol</th><th>Qty</th><th>Avg Cost</th><th>Price</th><th>Value</th><th>P&amp;L</th></tr></thead>
+        <tbody id="positions-body"></tbody>
+      </table>
+    </div>
   </div>
   <div class="panel">
     <h2>Portfolio Value</h2>
@@ -130,6 +136,20 @@ async function updatePortfolio() {
     let totalPL = 0;
     if (d.positions) d.positions.forEach(p => totalPL += p.unrealized_pl);
     fmtPL(totalPL, document.getElementById('m-pnl'));
+    const pb = document.getElementById('positions-body');
+    pb.innerHTML = '';
+    if (d.positions && d.positions.length > 0) {
+      d.positions.forEach(p => {
+        const plCls = p.unrealized_pl >= 0 ? 'pos' : 'neg';
+        pb.innerHTML += `<tr>
+          <td>${p.symbol}</td><td>${p.qty}</td>
+          <td>${fmt(p.avg_cost)}</td><td>${fmt(p.current_price)}</td>
+          <td>${fmt(p.market_value)}</td>
+          <td class="${plCls}">${fmt(p.unrealized_pl)}</td></tr>`;
+      });
+    } else {
+      pb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8b949e">No positions</td></tr>';
+    }
   } catch(e) { console.error('portfolio error', e); }
 }
 
