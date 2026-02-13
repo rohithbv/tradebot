@@ -117,7 +117,7 @@
 <script>
 const fmt = (n) => n == null ? '--' : '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtPL = (n, el) => { el.textContent = fmt(n); el.className = 'value ' + (n >= 0 ? 'pos' : 'neg'); };
-const fmtTime = (t) => { const d = new Date(t); return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); };
+const fmtTime = (t) => { const d = new Date(t); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); };
 
 let tradesPage = 0;
 const TRADES_PER_PAGE = 10;
