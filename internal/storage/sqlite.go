@@ -23,6 +23,8 @@ type Store interface {
 	LoadState() (*model.BrokerState, error)
 	SaveAnalyses(analyses map[string]model.Analysis) error
 	LoadAnalyses() (map[string]model.Analysis, error)
+	SaveWatchlist(symbols []string) error
+	LoadWatchlist() ([]string, error)
 	Close() error
 }
 
@@ -379,6 +381,50 @@ func (s *SQLiteStore) LoadAnalyses() (map[string]model.Analysis, error) {
 		return nil, fmt.Errorf("unmarshal analyses: %w", err)
 	}
 	return analyses, nil
+}
+
+// ---------------------------------------------------------------------------
+// State (Watchlist persistence)
+// ---------------------------------------------------------------------------
+
+const watchlistKey = "watchlist"
+
+// SaveWatchlist persists the watchlist as a JSON array of symbol strings.
+func (s *SQLiteStore) SaveWatchlist(symbols []string) error {
+	data, err := json.Marshal(symbols)
+	if err != nil {
+		return fmt.Errorf("marshal watchlist: %w", err)
+	}
+
+	_, err = s.db.Exec(
+		`INSERT OR REPLACE INTO state (key, value) VALUES (?, ?)`,
+		watchlistKey, string(data),
+	)
+	if err != nil {
+		return fmt.Errorf("upsert watchlist: %w", err)
+	}
+	return nil
+}
+
+// LoadWatchlist loads the watchlist from the database.
+// If no watchlist has been saved yet, it returns (nil, nil).
+func (s *SQLiteStore) LoadWatchlist() ([]string, error) {
+	var raw string
+	err := s.db.QueryRow(
+		`SELECT value FROM state WHERE key = ?`, watchlistKey,
+	).Scan(&raw)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query watchlist: %w", err)
+	}
+
+	var symbols []string
+	if err := json.Unmarshal([]byte(raw), &symbols); err != nil {
+		return nil, fmt.Errorf("unmarshal watchlist: %w", err)
+	}
+	return symbols, nil
 }
 
 // Close closes the underlying database connection.

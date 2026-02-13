@@ -36,6 +36,17 @@
   .pagination button:disabled{opacity:0.4;cursor:default}
   .pagination button:hover:not(:disabled){background:#30363d}
   .pagination .page-info{font-size:0.8rem;color:#8b949e}
+  .add-symbol{display:flex;gap:8px;margin-bottom:12px}
+  .add-symbol input{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e1e4e8;font-size:0.85rem;outline:none}
+  .add-symbol input:focus{border-color:#58a6ff}
+  .add-symbol button{background:#238636;border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:600;white-space:nowrap}
+  .add-symbol button:hover{background:#2ea043}
+  .add-symbol button:disabled{opacity:0.5;cursor:default}
+  .wl-msg{font-size:0.8rem;margin-bottom:8px;padding:4px 8px;border-radius:4px;display:none}
+  .wl-msg.success{display:block;background:#0e4429;color:#3fb950}
+  .wl-msg.error{display:block;background:#490c0c;color:#f85149}
+  .btn-remove{background:none;border:1px solid #30363d;color:#8b949e;padding:2px 6px;border-radius:4px;cursor:pointer;font-size:0.75rem}
+  .btn-remove:hover{border-color:#f85149;color:#f85149}
 
   /* Phone */
   @media(max-width:480px){
@@ -108,8 +119,13 @@
   </div>
   <div class="panel">
     <h2>Watchlist</h2>
+    <div class="add-symbol">
+      <input type="text" id="add-symbol-input" placeholder="Enter ticker (e.g. TSLA)" maxlength="10">
+      <button id="add-symbol-btn" onclick="addSymbol()">Add</button>
+    </div>
+    <div class="wl-msg" id="wl-msg"></div>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Symbol</th><th>RSI</th><th>MACD</th><th>Signal</th><th>Status</th></tr></thead>
+      <thead><tr><th>Symbol</th><th>RSI</th><th>MACD</th><th>Signal</th><th>Status</th><th></th></tr></thead>
       <tbody id="watchlist-body"></tbody>
     </table></div>
   </div>
@@ -222,10 +238,61 @@ async function updateWatchlist() {
         <td>${w.rsi ? w.rsi.toFixed(1) : '--'}</td>
         <td>${w.macd ? w.macd.toFixed(4) : '--'}</td>
         <td><span class="badge ${sCls}">${w.signal.toUpperCase()}</span></td>
-        <td>${w.held ? 'Holding' : '-'}</td></tr>`;
+        <td>${w.held ? 'Holding' : '-'}</td>
+        <td><button class="btn-remove" onclick="removeSymbol('${w.symbol}')" title="Remove ${w.symbol}">X</button></td></tr>`;
     });
-    if (!d || d.length === 0) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8b949e">Waiting for data...</td></tr>';
+    if (!d || d.length === 0) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8b949e">Waiting for data...</td></tr>';
   } catch(e) { console.error('watchlist error', e); }
+}
+
+function showWlMsg(msg, type) {
+  const el = document.getElementById('wl-msg');
+  el.textContent = msg;
+  el.className = 'wl-msg ' + type;
+  setTimeout(() => { el.className = 'wl-msg'; }, 3000);
+}
+
+async function addSymbol() {
+  const input = document.getElementById('add-symbol-input');
+  const symbol = input.value.trim().toUpperCase();
+  if (!symbol) return;
+  const btn = document.getElementById('add-symbol-btn');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/watchlist', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({symbol})
+    });
+    const d = await r.json();
+    if (r.ok) {
+      showWlMsg(symbol + ' added to watchlist', 'success');
+      input.value = '';
+      updateWatchlist();
+    } else {
+      showWlMsg(d.error || 'Failed to add symbol', 'error');
+    }
+  } catch(e) {
+    showWlMsg('Network error', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function removeSymbol(sym) {
+  if (!confirm('Remove ' + sym + ' from watchlist?')) return;
+  try {
+    const r = await fetch('/api/watchlist?symbol=' + encodeURIComponent(sym), {method: 'DELETE'});
+    const d = await r.json();
+    if (r.ok) {
+      showWlMsg(sym + ' removed', 'success');
+      updateWatchlist();
+    } else {
+      showWlMsg(d.error || 'Failed to remove symbol', 'error');
+    }
+  } catch(e) {
+    showWlMsg('Network error', 'error');
+  }
 }
 
 async function updateStatus() {
@@ -246,6 +313,8 @@ async function refresh() {
 document.getElementById('trades-first').addEventListener('click', () => { tradesPage = 0; updateTrades(); });
 document.getElementById('trades-prev').addEventListener('click', () => { if (tradesPage > 0) { tradesPage--; updateTrades(); } });
 document.getElementById('trades-next').addEventListener('click', () => { if (tradesPage < tradesTotalPages - 1) { tradesPage++; updateTrades(); } });
+
+document.getElementById('add-symbol-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') addSymbol(); });
 
 initChart();
 refresh();

@@ -31,6 +31,7 @@ type Engine struct {
 	lastPollTime time.Time
 	running      bool
 	tickCount    int
+	watchlist    []string
 }
 
 // New creates a new trading engine with the given dependencies.
@@ -71,6 +72,23 @@ func (e *Engine) Run(ctx context.Context) error {
 		e.lastAnalyses = saved
 		e.mu.Unlock()
 		slog.Info("restored analyses from storage", "count", len(saved))
+	}
+
+	// Load watchlist from DB; fall back to config defaults.
+	if dbWatchlist, err := e.store.LoadWatchlist(); err != nil {
+		slog.Error("failed to load watchlist from DB", "error", err)
+	} else if len(dbWatchlist) > 0 {
+		e.mu.Lock()
+		e.watchlist = dbWatchlist
+		e.mu.Unlock()
+		slog.Info("restored watchlist from storage", "symbols", dbWatchlist)
+	}
+	if len(e.getWatchlist()) == 0 {
+		e.mu.Lock()
+		e.watchlist = make([]string, len(e.cfg.Trading.Watchlist))
+		copy(e.watchlist, e.cfg.Trading.Watchlist)
+		e.mu.Unlock()
+		slog.Info("using config watchlist", "symbols", e.cfg.Trading.Watchlist)
 	}
 
 	// Main loop: check market hours and run trading ticks.
@@ -140,14 +158,16 @@ func (e *Engine) runTradingLoop(ctx context.Context) error {
 func (e *Engine) tick(ctx context.Context) error {
 	slog.Debug("tick starting")
 
+	watchlist := e.getWatchlist()
+
 	// Fetch bars for strategy evaluation.
-	bars, err := e.market.GetBars(e.cfg.Trading.Watchlist, 50*time.Minute)
+	bars, err := e.market.GetBars(watchlist, 50*time.Minute)
 	if err != nil {
 		return fmt.Errorf("get bars: %w", err)
 	}
 
 	// Fetch latest prices.
-	latestPrices, err := e.market.GetLatestPrices(e.cfg.Trading.Watchlist)
+	latestPrices, err := e.market.GetLatestPrices(watchlist)
 	if err != nil {
 		return fmt.Errorf("get latest prices: %w", err)
 	}
@@ -156,8 +176,8 @@ func (e *Engine) tick(ctx context.Context) error {
 	e.broker.UpdatePrices(latestPrices)
 
 	// Evaluate strategy for each symbol in the watchlist.
-	analyses := make(map[string]model.Analysis, len(e.cfg.Trading.Watchlist))
-	for _, symbol := range e.cfg.Trading.Watchlist {
+	analyses := make(map[string]model.Analysis, len(watchlist))
+	for _, symbol := range watchlist {
 		// Extract close prices from bars.
 		closes := extractCloses(bars[symbol])
 		if len(closes) == 0 {
@@ -337,6 +357,86 @@ func (e *Engine) IsRunning() bool {
 	defer e.mu.RUnlock()
 
 	return e.running
+}
+
+// getWatchlist returns a copy of the current watchlist (read-locked).
+func (e *Engine) getWatchlist() []string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	out := make([]string, len(e.watchlist))
+	copy(out, e.watchlist)
+	return out
+}
+
+// GetWatchlist returns a copy of the current watchlist.
+// Safe for concurrent access by the web dashboard.
+func (e *Engine) GetWatchlist() []string {
+	return e.getWatchlist()
+}
+
+// AddSymbol appends a symbol to the watchlist if not already present,
+// and persists the updated list to the database.
+func (e *Engine) AddSymbol(symbol string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	for _, s := range e.watchlist {
+		if s == symbol {
+			return fmt.Errorf("symbol %q is already in the watchlist", symbol)
+		}
+	}
+
+	e.watchlist = append(e.watchlist, symbol)
+	if err := e.store.SaveWatchlist(e.watchlist); err != nil {
+		// Roll back the in-memory change.
+		e.watchlist = e.watchlist[:len(e.watchlist)-1]
+		return fmt.Errorf("persist watchlist: %w", err)
+	}
+
+	slog.Info("symbol added to watchlist", "symbol", symbol)
+	return nil
+}
+
+// RemoveSymbol removes a symbol from the watchlist and persists the change.
+// Returns an error if the symbol has an open position.
+func (e *Engine) RemoveSymbol(symbol string) error {
+	// Check for open position first.
+	state := e.broker.GetState()
+	if _, held := state.Positions[symbol]; held {
+		return fmt.Errorf("cannot remove %q: has an open position", symbol)
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	idx := -1
+	for i, s := range e.watchlist {
+		if s == symbol {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return fmt.Errorf("symbol %q is not in the watchlist", symbol)
+	}
+
+	// Remove from slice.
+	updated := make([]string, 0, len(e.watchlist)-1)
+	updated = append(updated, e.watchlist[:idx]...)
+	updated = append(updated, e.watchlist[idx+1:]...)
+
+	if err := e.store.SaveWatchlist(updated); err != nil {
+		return fmt.Errorf("persist watchlist: %w", err)
+	}
+
+	e.watchlist = updated
+
+	// Clean up analysis data for the removed symbol.
+	delete(e.lastAnalyses, symbol)
+
+	slog.Info("symbol removed from watchlist", "symbol", symbol)
+	return nil
 }
 
 // extractCloses extracts the close prices from a slice of bars.

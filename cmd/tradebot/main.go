@@ -67,7 +67,7 @@ func main() {
 
 	eng := engine.New(mktClient, brk, strat, store, cfg, notifier)
 
-	webSrv := web.NewServer(cfg.Web, brk, store)
+	webSrv := web.NewServer(cfg.Web, brk, store, mktClient)
 	webSrv.SetEngine(eng)
 
 	// Start engine in a goroutine.

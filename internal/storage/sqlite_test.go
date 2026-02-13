@@ -397,3 +397,57 @@ func TestLoadStateEmpty(t *testing.T) {
 		t.Errorf("expected nil state from empty DB, got %+v", got)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Watchlist
+// ---------------------------------------------------------------------------
+
+func TestSaveAndLoadWatchlist(t *testing.T) {
+	store := newTestStore(t)
+
+	symbols := []string{"AAPL", "GOOG", "MSFT"}
+	if err := store.SaveWatchlist(symbols); err != nil {
+		t.Fatalf("SaveWatchlist: %v", err)
+	}
+
+	got, err := store.LoadWatchlist()
+	if err != nil {
+		t.Fatalf("LoadWatchlist: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected 3 symbols, got %d", len(got))
+	}
+	for i, s := range symbols {
+		if got[i] != s {
+			t.Errorf("symbol[%d]: got %q, want %q", i, got[i], s)
+		}
+	}
+
+	// Update and verify overwrite.
+	updated := []string{"AAPL", "TSLA"}
+	if err := store.SaveWatchlist(updated); err != nil {
+		t.Fatalf("SaveWatchlist update: %v", err)
+	}
+	got2, err := store.LoadWatchlist()
+	if err != nil {
+		t.Fatalf("LoadWatchlist after update: %v", err)
+	}
+	if len(got2) != 2 {
+		t.Fatalf("expected 2 symbols after update, got %d", len(got2))
+	}
+	if got2[0] != "AAPL" || got2[1] != "TSLA" {
+		t.Errorf("unexpected symbols after update: %v", got2)
+	}
+}
+
+func TestLoadWatchlistEmpty(t *testing.T) {
+	store := newTestStore(t)
+
+	got, err := store.LoadWatchlist()
+	if err != nil {
+		t.Fatalf("LoadWatchlist on empty DB: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil watchlist from empty DB, got %v", got)
+	}
+}

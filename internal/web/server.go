@@ -9,6 +9,7 @@ import (
 
 	"github.com/rohithbv/tradebot/internal/broker"
 	"github.com/rohithbv/tradebot/internal/config"
+	"github.com/rohithbv/tradebot/internal/market"
 	"github.com/rohithbv/tradebot/internal/model"
 	"github.com/rohithbv/tradebot/internal/storage"
 )
@@ -21,6 +22,9 @@ type EngineReader interface {
 	GetLastAnalyses() map[string]model.Analysis
 	GetLastPollTime() time.Time
 	IsRunning() bool
+	GetWatchlist() []string
+	AddSymbol(symbol string) error
+	RemoveSymbol(symbol string) error
 }
 
 // Server is the HTTP server that serves the web dashboard and API endpoints.
@@ -28,17 +32,19 @@ type Server struct {
 	cfg    config.WebConfig
 	broker *broker.PaperBroker
 	store  storage.Store
+	market *market.MarketClient
 	engine EngineReader
 	srv    *http.Server
 	start  time.Time
 }
 
-// NewServer creates a new web server with the given configuration, broker, and store.
-func NewServer(cfg config.WebConfig, brk *broker.PaperBroker, store storage.Store) *Server {
+// NewServer creates a new web server with the given configuration, broker, store, and market client.
+func NewServer(cfg config.WebConfig, brk *broker.PaperBroker, store storage.Store, mkt *market.MarketClient) *Server {
 	s := &Server{
 		cfg:    cfg,
 		broker: brk,
 		store:  store,
+		market: mkt,
 		start:  time.Now(),
 	}
 	mux := http.NewServeMux()

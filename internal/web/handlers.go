@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -243,6 +244,19 @@ type watchlistItem struct {
 }
 
 func (s *Server) handleWatchlist(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		s.handleWatchlistGet(w, r)
+	case http.MethodPost:
+		s.handleWatchlistPost(w, r)
+	case http.MethodDelete:
+		s.handleWatchlistDelete(w, r)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) handleWatchlistGet(w http.ResponseWriter, r *http.Request) {
 	if s.engine == nil {
 		writeJSON(w, http.StatusOK, []watchlistItem{})
 		return
@@ -250,18 +264,22 @@ func (s *Server) handleWatchlist(w http.ResponseWriter, r *http.Request) {
 
 	analyses := s.engine.GetLastAnalyses()
 	state := s.broker.GetState()
+	watchlist := s.engine.GetWatchlist()
 
-	items := make([]watchlistItem, 0, len(analyses))
-	for _, a := range analyses {
-		_, held := state.Positions[a.Symbol]
-		items = append(items, watchlistItem{
-			Symbol:     a.Symbol,
-			RSI:        a.RSI,
-			MACD:       a.MACD,
-			MACDSignal: a.MACDSignal,
-			Signal:     a.Signal.String(),
-			Held:       held,
-		})
+	// Build items from watchlist so newly added symbols appear immediately.
+	items := make([]watchlistItem, 0, len(watchlist))
+	for _, sym := range watchlist {
+		item := watchlistItem{Symbol: sym}
+		if a, ok := analyses[sym]; ok {
+			item.RSI = a.RSI
+			item.MACD = a.MACD
+			item.MACDSignal = a.MACDSignal
+			item.Signal = a.Signal.String()
+		} else {
+			item.Signal = "hold"
+		}
+		_, item.Held = state.Positions[sym]
+		items = append(items, item)
 	}
 
 	// Sort by symbol for stable output.
@@ -270,6 +288,62 @@ func (s *Server) handleWatchlist(w http.ResponseWriter, r *http.Request) {
 	})
 
 	writeJSON(w, http.StatusOK, items)
+}
+
+func (s *Server) handleWatchlistPost(w http.ResponseWriter, r *http.Request) {
+	if s.engine == nil {
+		writeError(w, http.StatusServiceUnavailable, "engine not ready")
+		return
+	}
+
+	var req struct {
+		Symbol string `json:"symbol"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	symbol := strings.ToUpper(strings.TrimSpace(req.Symbol))
+	if symbol == "" {
+		writeError(w, http.StatusBadRequest, "symbol is required")
+		return
+	}
+
+	// Validate against Alpaca API.
+	if s.market != nil {
+		if err := s.market.ValidateSymbol(symbol); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	if err := s.engine.AddSymbol(symbol); err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "added", "symbol": symbol})
+}
+
+func (s *Server) handleWatchlistDelete(w http.ResponseWriter, r *http.Request) {
+	if s.engine == nil {
+		writeError(w, http.StatusServiceUnavailable, "engine not ready")
+		return
+	}
+
+	symbol := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("symbol")))
+	if symbol == "" {
+		writeError(w, http.StatusBadRequest, "symbol query parameter is required")
+		return
+	}
+
+	if err := s.engine.RemoveSymbol(symbol); err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "removed", "symbol": symbol})
 }
 
 // --------------------------------------------------------------------------

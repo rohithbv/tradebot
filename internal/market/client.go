@@ -90,6 +90,24 @@ func (mc *MarketClient) GetBars(symbols []string, lookback time.Duration) (map[s
 	return result, nil
 }
 
+// ValidateSymbol checks whether a symbol is a valid, active, tradable asset on Alpaca.
+func (mc *MarketClient) ValidateSymbol(symbol string) error {
+	asset, err := mc.tradeCli.GetAsset(symbol)
+	if err != nil {
+		return fmt.Errorf("symbol %q not found", symbol)
+	}
+
+	if asset.Status != alpaca.AssetActive {
+		return fmt.Errorf("symbol %q is not active (status: %s)", symbol, asset.Status)
+	}
+
+	if !asset.Tradable {
+		return fmt.Errorf("symbol %q is not tradable", symbol)
+	}
+
+	return nil
+}
+
 // GetLatestPrices returns the most recent close price for each of the given symbols.
 func (mc *MarketClient) GetLatestPrices(symbols []string) (map[string]float64, error) {
 	if len(symbols) == 0 {
