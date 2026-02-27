@@ -50,14 +50,12 @@ func main() {
 
 	brk := broker.NewPaperBroker(cfg.Trading.InitialCash, store, cfg.Trading)
 
-	strat := strategy.NewRSIMACDStrategy(
-		cfg.Strategy.RSIPeriod,
-		cfg.Strategy.RSIOversold,
-		cfg.Strategy.RSIOverbought,
-		cfg.Strategy.MACDFastPeriod,
-		cfg.Strategy.MACDSlowPeriod,
-		cfg.Strategy.MACDSignalPeriod,
-	)
+	strat, err := strategy.New(cfg.Strategy)
+	if err != nil {
+		slog.Error("failed to create strategy", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("strategy initialized", "type", cfg.Strategy.Type)
 
 	var notifier notification.Notifier
 	if cfg.Telegram.Enabled && cfg.Telegram.BotToken != "" && cfg.Telegram.ChatID != 0 {

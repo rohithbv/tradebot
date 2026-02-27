@@ -35,10 +35,11 @@ func NewRSIMACDStrategy(rsiPeriod int, rsiOversold, rsiOverbought float64, macdF
 // indicators, it returns a Hold signal gracefully.
 func (s *RSIMACDStrategy) Evaluate(symbol string, closes []float64) model.Analysis {
 	hold := model.Analysis{
-		Symbol:    symbol,
-		Signal:    model.Hold,
-		Reason:    "hold",
-		Timestamp: time.Now(),
+		Symbol:       symbol,
+		Signal:       model.Hold,
+		StrategyType: "rsi_macd",
+		Reason:       "hold",
+		Timestamp:    time.Now(),
 	}
 
 	// Calculate RSI.
@@ -63,11 +64,12 @@ func (s *RSIMACDStrategy) Evaluate(symbol string, closes []float64) model.Analys
 	curr := macdResult.Points[len(macdResult.Points)-1]
 
 	analysis := model.Analysis{
-		Symbol:     symbol,
-		RSI:        latestRSI,
-		MACD:       curr.MACD,
-		MACDSignal: curr.Signal,
-		Timestamp:  time.Now(),
+		Symbol:       symbol,
+		RSI:          latestRSI,
+		MACD:         curr.MACD,
+		MACDSignal:   curr.Signal,
+		StrategyType: "rsi_macd",
+		Timestamp:    time.Now(),
 	}
 
 	// BUY: RSI < oversold AND bullish crossover (previous MACD < Signal, current MACD >= Signal).

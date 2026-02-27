@@ -24,13 +24,16 @@ func (s Signal) String() string {
 
 // Analysis is the output of a strategy evaluation.
 type Analysis struct {
-	Symbol     string
-	Signal     Signal
-	RSI        float64
-	MACD       float64
-	MACDSignal float64
-	Reason     string
-	Timestamp  time.Time
+	Symbol       string
+	Signal       Signal
+	RSI          float64
+	MACD         float64
+	MACDSignal   float64
+	EMAFast      float64
+	EMASlow      float64
+	StrategyType string
+	Reason       string
+	Timestamp    time.Time
 }
 
 // Bar represents a single OHLCV price bar.

@@ -192,9 +192,12 @@ func (e *Engine) tick(ctx context.Context) error {
 		slog.Debug("strategy analysis",
 			"symbol", symbol,
 			"signal", analysis.Signal.String(),
+			"strategy_type", analysis.StrategyType,
 			"rsi", analysis.RSI,
 			"macd", analysis.MACD,
 			"macd_signal", analysis.MACDSignal,
+			"ema_fast", analysis.EMAFast,
+			"ema_slow", analysis.EMASlow,
 			"reason", analysis.Reason,
 		)
 

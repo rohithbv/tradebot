@@ -33,12 +33,15 @@ type TradingConfig struct {
 }
 
 type StrategyConfig struct {
+	Type             string  `yaml:"type"`
 	RSIPeriod        int     `yaml:"rsi_period"`
 	RSIOversold      float64 `yaml:"rsi_oversold"`
 	RSIOverbought    float64 `yaml:"rsi_overbought"`
 	MACDFastPeriod   int     `yaml:"macd_fast_period"`
 	MACDSlowPeriod   int     `yaml:"macd_slow_period"`
 	MACDSignalPeriod int     `yaml:"macd_signal_period"`
+	EMAFastPeriod    int     `yaml:"ema_fast_period"`
+	EMASlowPeriod    int     `yaml:"ema_slow_period"`
 }
 
 type StorageConfig struct {
@@ -120,6 +123,9 @@ func applyDefaults(cfg *Config) {
 			"HD", "CVX", "MRK", "ABBV", "PEP",
 		}
 	}
+	if cfg.Strategy.Type == "" {
+		cfg.Strategy.Type = "rsi_macd"
+	}
 	if cfg.Strategy.RSIPeriod == 0 {
 		cfg.Strategy.RSIPeriod = 14
 	}
@@ -137,6 +143,12 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Strategy.MACDSignalPeriod == 0 {
 		cfg.Strategy.MACDSignalPeriod = 9
+	}
+	if cfg.Strategy.EMAFastPeriod == 0 {
+		cfg.Strategy.EMAFastPeriod = 9
+	}
+	if cfg.Strategy.EMASlowPeriod == 0 {
+		cfg.Strategy.EMASlowPeriod = 21
 	}
 	if cfg.Storage.DBPath == "" {
 		cfg.Storage.DBPath = "tradebot.db"
@@ -161,6 +173,14 @@ func validate(cfg *Config) error {
 	}
 	if len(cfg.Trading.Watchlist) == 0 {
 		return fmt.Errorf("watchlist must not be empty")
+	}
+	if cfg.Strategy.Type == "ema_crossover" {
+		if cfg.Strategy.EMAFastPeriod <= 0 || cfg.Strategy.EMASlowPeriod <= 0 {
+			return fmt.Errorf("ema_fast_period and ema_slow_period must be positive")
+		}
+		if cfg.Strategy.EMAFastPeriod >= cfg.Strategy.EMASlowPeriod {
+			return fmt.Errorf("ema_fast_period must be less than ema_slow_period")
+		}
 	}
 	return nil
 }

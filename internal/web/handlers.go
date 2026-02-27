@@ -235,12 +235,15 @@ func (s *Server) handleTrades(w http.ResponseWriter, r *http.Request) {
 // --------------------------------------------------------------------------
 
 type watchlistItem struct {
-	Symbol     string  `json:"symbol"`
-	RSI        float64 `json:"rsi"`
-	MACD       float64 `json:"macd"`
-	MACDSignal float64 `json:"macd_signal"`
-	Signal     string  `json:"signal"`
-	Held       bool    `json:"held"`
+	Symbol       string  `json:"symbol"`
+	RSI          float64 `json:"rsi"`
+	MACD         float64 `json:"macd"`
+	MACDSignal   float64 `json:"macd_signal"`
+	EMAFast      float64 `json:"ema_fast"`
+	EMASlow      float64 `json:"ema_slow"`
+	StrategyType string  `json:"strategy_type"`
+	Signal       string  `json:"signal"`
+	Held         bool    `json:"held"`
 }
 
 func (s *Server) handleWatchlist(w http.ResponseWriter, r *http.Request) {
@@ -274,6 +277,9 @@ func (s *Server) handleWatchlistGet(w http.ResponseWriter, r *http.Request) {
 			item.RSI = a.RSI
 			item.MACD = a.MACD
 			item.MACDSignal = a.MACDSignal
+			item.EMAFast = a.EMAFast
+			item.EMASlow = a.EMASlow
+			item.StrategyType = a.StrategyType
 			item.Signal = a.Signal.String()
 		} else {
 			item.Signal = "hold"
