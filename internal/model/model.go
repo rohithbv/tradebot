@@ -49,14 +49,15 @@ type Bar struct {
 
 // Trade represents an executed trade.
 type Trade struct {
-	ID        string
-	Symbol    string
-	Side      string // "buy" or "sell"
-	Qty       int
-	Price     float64
-	Total     float64
-	Reason    string
-	Timestamp time.Time
+	ID          string
+	Symbol      string
+	Side        string // "buy" or "sell"
+	Qty         int
+	Price       float64
+	Total       float64
+	RealizedPnL *float64 // nil for buy trades; set to realized P&L for sell trades
+	Reason      string
+	Timestamp   time.Time
 }
 
 // Position represents a currently held stock position.

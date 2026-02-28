@@ -135,14 +135,15 @@ func (s *Server) handlePortfolioHistory(w http.ResponseWriter, r *http.Request) 
 // --------------------------------------------------------------------------
 
 type tradeResponse struct {
-	ID        string    `json:"id"`
-	Symbol    string    `json:"symbol"`
-	Side      string    `json:"side"`
-	Qty       int       `json:"qty"`
-	Price     float64   `json:"price"`
-	Total     float64   `json:"total"`
-	Reason    string    `json:"reason"`
-	Timestamp time.Time `json:"timestamp"`
+	ID          string    `json:"id"`
+	Symbol      string    `json:"symbol"`
+	Side        string    `json:"side"`
+	Qty         int       `json:"qty"`
+	Price       float64   `json:"price"`
+	Total       float64   `json:"total"`
+	RealizedPnL *float64  `json:"realized_pnl"`
+	Reason      string    `json:"reason"`
+	Timestamp   time.Time `json:"timestamp"`
 }
 
 type paginatedTradesResponse struct {
@@ -210,14 +211,15 @@ func (s *Server) handleTrades(w http.ResponseWriter, r *http.Request) {
 	items := make([]tradeResponse, 0, len(trades))
 	for _, t := range trades {
 		items = append(items, tradeResponse{
-			ID:        t.ID,
-			Symbol:    t.Symbol,
-			Side:      t.Side,
-			Qty:       t.Qty,
-			Price:     t.Price,
-			Total:     t.Total,
-			Reason:    t.Reason,
-			Timestamp: t.Timestamp,
+			ID:          t.ID,
+			Symbol:      t.Symbol,
+			Side:        t.Side,
+			Qty:         t.Qty,
+			Price:       t.Price,
+			Total:       t.Total,
+			RealizedPnL: t.RealizedPnL,
+			Reason:      t.Reason,
+			Timestamp:   t.Timestamp,
 		})
 	}
 

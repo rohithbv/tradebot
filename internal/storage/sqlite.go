@@ -52,7 +52,15 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 		return nil, fmt.Errorf("create tables: %w", err)
 	}
 
+	migrateDB(db)
+
 	return &SQLiteStore{db: db}, nil
+}
+
+// migrateDB applies incremental schema changes to existing databases.
+func migrateDB(db *sql.DB) {
+	// Add realized_pnl column if it doesn't already exist (error = already exists, safe to ignore).
+	_, _ = db.Exec(`ALTER TABLE trades ADD COLUMN realized_pnl REAL`)
 }
 
 func createTables(db *sql.DB) error {
@@ -110,14 +118,15 @@ func createTables(db *sql.DB) error {
 // SaveTrade inserts a single trade record.
 func (s *SQLiteStore) SaveTrade(trade model.Trade) error {
 	_, err := s.db.Exec(
-		`INSERT INTO trades (id, symbol, side, qty, price, total, reason, timestamp)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO trades (id, symbol, side, qty, price, total, realized_pnl, reason, timestamp)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		trade.ID,
 		trade.Symbol,
 		trade.Side,
 		trade.Qty,
 		trade.Price,
 		trade.Total,
+		trade.RealizedPnL,
 		trade.Reason,
 		trade.Timestamp.UTC(),
 	)
@@ -131,7 +140,7 @@ func (s *SQLiteStore) SaveTrade(trade model.Trade) error {
 // timestamp descending (most recent first), skipping offset rows.
 func (s *SQLiteStore) GetTrades(since time.Time, limit, offset int) ([]model.Trade, error) {
 	rows, err := s.db.Query(
-		`SELECT id, symbol, side, qty, price, total, reason, timestamp
+		`SELECT id, symbol, side, qty, price, total, realized_pnl, reason, timestamp
 		 FROM trades
 		 WHERE timestamp >= ?
 		 ORDER BY timestamp DESC
@@ -146,7 +155,7 @@ func (s *SQLiteStore) GetTrades(since time.Time, limit, offset int) ([]model.Tra
 	var trades []model.Trade
 	for rows.Next() {
 		var t model.Trade
-		if err := rows.Scan(&t.ID, &t.Symbol, &t.Side, &t.Qty, &t.Price, &t.Total, &t.Reason, &t.Timestamp); err != nil {
+		if err := rows.Scan(&t.ID, &t.Symbol, &t.Side, &t.Qty, &t.Price, &t.Total, &t.RealizedPnL, &t.Reason, &t.Timestamp); err != nil {
 			return nil, fmt.Errorf("scan trade: %w", err)
 		}
 		trades = append(trades, t)

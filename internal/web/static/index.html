@@ -107,7 +107,7 @@
   <div class="panel">
     <h2>Trade History</h2>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Side</th><th>Symbol</th><th>Qty</th><th>Price</th><th>Total</th><th>Reason</th><th>Time</th></tr></thead>
+      <thead><tr><th>Side</th><th>Symbol</th><th>Qty</th><th>Price</th><th>Total</th><th>P&amp;L</th><th>Reason</th><th>Time</th></tr></thead>
       <tbody id="trades-body"></tbody>
     </table></div>
     <div class="pagination" id="trades-pagination">
@@ -204,7 +204,7 @@ async function updateTrades() {
     const tb = document.getElementById('trades-body');
     tb.innerHTML = '';
     if (trades.length === 0) {
-      tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8b949e">No trades yet</td></tr>';
+      tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8b949e">No trades yet</td></tr>';
       document.getElementById('trades-page-info').textContent = '';
       document.getElementById('trades-first').disabled = true;
       document.getElementById('trades-prev').disabled = true;
@@ -213,10 +213,14 @@ async function updateTrades() {
     }
     trades.forEach(t => {
       const cls = t.side === 'buy' ? 'badge-buy' : 'badge-sell';
+      const plCell = t.realized_pnl != null
+        ? `<td class="${t.realized_pnl >= 0 ? 'pos' : 'neg'}">${fmt(t.realized_pnl)}</td>`
+        : `<td style="color:#8b949e">--</td>`;
       tb.innerHTML += `<tr>
         <td><span class="badge ${cls}">${t.side.toUpperCase()}</span></td>
         <td>${esc(t.symbol)}</td><td>${t.qty}</td>
         <td>${fmt(t.price)}</td><td>${fmt(t.total)}</td>
+        ${plCell}
         <td>${esc(t.reason || '-')}</td><td>${fmtTime(t.timestamp)}</td></tr>`;
     });
     document.getElementById('trades-page-info').textContent = 'Page ' + d.page + ' of ' + tradesTotalPages;

@@ -142,16 +142,20 @@ func (b *PaperBroker) executeSell(analysis model.Analysis, currentPrice float64)
 	b.cash += proceeds
 	delete(b.positions, analysis.Symbol)
 
+	// Calculate realized P&L.
+	pnl := float64(pos.Qty) * (currentPrice - pos.AvgCost)
+
 	// Create trade record.
 	trade := &model.Trade{
-		ID:        uuid.New().String(),
-		Symbol:    analysis.Symbol,
-		Side:      "sell",
-		Qty:       pos.Qty,
-		Price:     currentPrice,
-		Total:     proceeds,
-		Reason:    analysis.Reason,
-		Timestamp: time.Now(),
+		ID:          uuid.New().String(),
+		Symbol:      analysis.Symbol,
+		Side:        "sell",
+		Qty:         pos.Qty,
+		Price:       currentPrice,
+		Total:       proceeds,
+		RealizedPnL: &pnl,
+		Reason:      analysis.Reason,
+		Timestamp:   time.Now(),
 	}
 
 	// Persist trade.
