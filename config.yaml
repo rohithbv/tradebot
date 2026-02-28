@@ -1,6 +1,4 @@
 alpaca:
-  api_key: ""            # or env APCA_API_KEY_ID
-  api_secret: ""         # or env APCA_API_SECRET_KEY
   base_url: "https://paper-api.alpaca.markets"
   feed: "iex"
 
@@ -13,7 +11,7 @@ trading:
               UNH, JNJ, XOM, PG, MA, HD, CVX, MRK, ABBV, PEP]
 
 strategy:
-  type: "rsi_macd"            # "rsi_macd" (default) or "ema_crossover"
+  type: "ema_crossover"            # "rsi_macd" (default) or "ema_crossover"
   rsi_period: 14
   rsi_oversold: 30.0
   rsi_overbought: 70.0
@@ -31,5 +29,3 @@ web:
 
 telegram:
   enabled: false
-  bot_token: ""   # or env TELEGRAM_BOT_TOKEN
-  chat_id: 0      # or env TELEGRAM_CHAT_ID

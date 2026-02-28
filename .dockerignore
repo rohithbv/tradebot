@@ -3,3 +3,7 @@
 *.db-shm
 *.db-wal
 tradebot
+.git
+plans/
+.claude/
+README.md

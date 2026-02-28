@@ -18,8 +18,8 @@ type Config struct {
 }
 
 type AlpacaConfig struct {
-	APIKey    string `yaml:"api_key"`
-	APISecret string `yaml:"api_secret"`
+	APIKey    string `yaml:"-"`
+	APISecret string `yaml:"-"`
 	BaseURL   string `yaml:"base_url"`
 	Feed      string `yaml:"feed"`
 }
@@ -54,7 +54,7 @@ type WebConfig struct {
 
 type TelegramConfig struct {
 	Enabled  bool   `yaml:"enabled"`
-	BotToken string `yaml:"bot_token"`
+	BotToken string `yaml:"-"`
 	ChatID   int64  `yaml:"chat_id"`
 }
 
@@ -92,6 +92,17 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("TELEGRAM_CHAT_ID"); v != "" {
 		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 			cfg.Telegram.ChatID = id
+		}
+	}
+	if v := os.Getenv("TRADEBOT_DB_PATH"); v != "" {
+		cfg.Storage.DBPath = v
+	}
+	if v := os.Getenv("TRADEBOT_WEB_ADDR"); v != "" {
+		cfg.Web.Addr = v
+	}
+	if v := os.Getenv("TRADEBOT_POLL_INTERVAL"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Trading.PollIntervalSec = n
 		}
 	}
 }
