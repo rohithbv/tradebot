@@ -1,3 +1,6 @@
+# No secrets here. All credentials must be provided via environment variables.
+# See env.example for required env vars.
+
 alpaca:
   base_url: "https://paper-api.alpaca.markets"
   feed: "iex"

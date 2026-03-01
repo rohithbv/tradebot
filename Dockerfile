@@ -8,10 +8,11 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /tradebot ./cmd/tradebot
 
 # Stage 2: Runtime
-FROM alpine:latest
+FROM alpine:3.21
 
-RUN addgroup -S tradebot && adduser -S tradebot -G tradebot
-RUN mkdir -p /data /etc/tradebot && chown tradebot:tradebot /data
+RUN addgroup -S tradebot && adduser -S tradebot -G tradebot \
+    && mkdir -p /data /etc/tradebot \
+    && chown tradebot:tradebot /data /etc/tradebot
 
 COPY --from=builder /tradebot /tradebot
 COPY config.yaml /etc/tradebot/config.yaml

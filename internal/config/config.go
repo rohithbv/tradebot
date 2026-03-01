@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 
@@ -92,6 +93,8 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("TELEGRAM_CHAT_ID"); v != "" {
 		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 			cfg.Telegram.ChatID = id
+		} else {
+			slog.Warn("TELEGRAM_CHAT_ID is set but not a valid int64, ignoring", "value", v)
 		}
 	}
 	if v := os.Getenv("TRADEBOT_DB_PATH"); v != "" {
@@ -103,6 +106,8 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("TRADEBOT_POLL_INTERVAL"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.Trading.PollIntervalSec = n
+		} else {
+			slog.Warn("TRADEBOT_POLL_INTERVAL is set but not a valid integer, ignoring", "value", v)
 		}
 	}
 }

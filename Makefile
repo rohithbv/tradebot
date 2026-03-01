@@ -15,7 +15,7 @@ docker-build:
 	docker build -t tradebot .
 
 docker-run:
-	docker run --env-file .env -p 8080:8080 -v tradebot-data:/data tradebot
+	docker run --env-file .env -e TRADEBOT_DB_PATH=/data/tradebot.db -p 8080:8080 -v tradebot-data:/data tradebot
 
 docker-up:
 	docker compose up -d
