@@ -1,4 +1,4 @@
-.PHONY: run test build build-armv64 docker-build docker-run docker-up docker-down
+.PHONY: run test build build-armv64 docker-build docker-run docker-up docker-down deploy
 
 run:
 	. .env && go run ./cmd/tradebot/main.go
@@ -22,3 +22,9 @@ docker-up:
 
 docker-down:
 	docker compose down
+
+deploy:
+ifndef REMOTE_HOST
+	$(error REMOTE_HOST is required. Usage: make deploy REMOTE_HOST=user@host)
+endif
+	./deploy.sh $(REMOTE_HOST)

@@ -25,7 +25,7 @@ strategy:
   ema_slow_period: 21
 
 storage:
-  db_path: "tradebot.db"
+  db_path: "/data/tradebot.db"
 
 web:
   addr: ":8080"

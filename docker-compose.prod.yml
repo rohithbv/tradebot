@@ -1,0 +1,15 @@
+services:
+  tradebot:
+    image: tradebot:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - TRADEBOT_DB_PATH=/data/tradebot.db
+    env_file:
+      - .env
+    volumes:
+      - tradebot-data:/data
+    restart: unless-stopped
+
+volumes:
+  tradebot-data:

@@ -7,3 +7,7 @@ tradebot
 plans/
 .claude/
 README.md
+deploy.sh
+deploy_test.sh
+docker-compose.prod.yml
+*.tar
