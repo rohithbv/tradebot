@@ -139,6 +139,7 @@ const esc = (s) => { const d = document.createElement('div'); d.textContent = s;
 let tradesPage = 0;
 const TRADES_PER_PAGE = 10;
 let tradesTotalPages = 1;
+let tradesKnownTotal = -1;
 
 let chart = null;
 function initChart() {
@@ -198,6 +199,16 @@ async function updateHistory() {
 async function updateTrades() {
   try {
     const d = await fetchJSON('/api/trades?page=' + (tradesPage + 1) + '&per_page=' + TRADES_PER_PAGE);
+    if (!d || d.error) { console.error('trades error', d && d.error); return; }
+    const total = d.total || 0;
+    // If new trades have arrived and we're not on page 1, jump back to page 1 so they're visible.
+    if (tradesKnownTotal >= 0 && total > tradesKnownTotal && tradesPage > 0) {
+      tradesKnownTotal = total;
+      tradesPage = 0;
+      updateTrades();
+      return;
+    }
+    tradesKnownTotal = total;
     const trades = d.trades || [];
     tradesTotalPages = d.total_pages || 1;
     if (tradesPage >= tradesTotalPages) tradesPage = tradesTotalPages - 1;
