@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -81,16 +82,24 @@ func Load(path string) (*Config, error) {
 }
 
 func applyEnvOverrides(cfg *Config) {
-	if v := os.Getenv("APCA_API_KEY_ID"); v != "" {
+	if v, err := envOrFile("APCA_API_KEY_ID"); err != nil {
+		slog.Warn("failed to read APCA_API_KEY_ID_FILE", "error", err)
+	} else if v != "" {
 		cfg.Alpaca.APIKey = v
 	}
-	if v := os.Getenv("APCA_API_SECRET_KEY"); v != "" {
+	if v, err := envOrFile("APCA_API_SECRET_KEY"); err != nil {
+		slog.Warn("failed to read APCA_API_SECRET_KEY_FILE", "error", err)
+	} else if v != "" {
 		cfg.Alpaca.APISecret = v
 	}
-	if v := os.Getenv("TELEGRAM_BOT_TOKEN"); v != "" {
+	if v, err := envOrFile("TELEGRAM_BOT_TOKEN"); err != nil {
+		slog.Warn("failed to read TELEGRAM_BOT_TOKEN_FILE", "error", err)
+	} else if v != "" {
 		cfg.Telegram.BotToken = v
 	}
-	if v := os.Getenv("TELEGRAM_CHAT_ID"); v != "" {
+	if v, err := envOrFile("TELEGRAM_CHAT_ID"); err != nil {
+		slog.Warn("failed to read TELEGRAM_CHAT_ID_FILE", "error", err)
+	} else if v != "" {
 		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
 			cfg.Telegram.ChatID = id
 		} else {
@@ -199,4 +208,22 @@ func validate(cfg *Config) error {
 		}
 	}
 	return nil
+}
+
+// readSecretFile reads a secret from a file path, trimming whitespace.
+func readSecretFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
+// envOrFile checks for a _FILE env var first (Docker secrets), then falls back
+// to the direct env var. Returns the value and any error from reading the file.
+func envOrFile(key string) (string, error) {
+	if path := os.Getenv(key + "_FILE"); path != "" {
+		return readSecretFile(path)
+	}
+	return os.Getenv(key), nil
 }

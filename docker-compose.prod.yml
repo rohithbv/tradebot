@@ -2,14 +2,34 @@ services:
   tradebot:
     image: tradebot:latest
     ports:
-      - "8080:8080"
+      - "0.0.0.0:8081:8080"
     environment:
       - TRADEBOT_DB_PATH=/data/tradebot.db
-    env_file:
-      - .env
+      - APCA_API_KEY_ID_FILE=/run/secrets/apca-api-key-id
+      - APCA_API_SECRET_KEY_FILE=/run/secrets/apca-api-secret-key
+      - TELEGRAM_BOT_TOKEN_FILE=/run/secrets/telegram-bot-token
+      - TELEGRAM_CHAT_ID_FILE=/run/secrets/telegram-chat-id
     volumes:
       - tradebot-data:/data
+    secrets:
+      - apca-api-key-id
+      - apca-api-secret-key
+      - telegram-bot-token
+      - telegram-chat-id
     restart: unless-stopped
+    deploy:
+      update_config:
+        order: start-first
 
 volumes:
   tradebot-data:
+
+secrets:
+  apca-api-key-id:
+    external: true
+  apca-api-secret-key:
+    external: true
+  telegram-bot-token:
+    external: true
+  telegram-chat-id:
+    external: true
