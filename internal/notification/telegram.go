@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -47,20 +48,21 @@ func (t *TelegramNotifier) NotifyTrade(trade model.Trade) {
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		slog.Error("failed to marshal telegram payload", "error", err)
+		slog.Error("failed to marshal telegram payload", "error", err, "symbol", trade.Symbol, "side", trade.Side)
 		return
 	}
 
 	url := fmt.Sprintf("%s/bot%s/sendMessage", t.baseURL, t.botToken)
 	resp, err := t.client.Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
-		slog.Error("failed to send telegram notification", "error", err)
+		slog.Error("failed to send telegram notification", "error", err, "symbol", trade.Symbol, "side", trade.Side)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		slog.Error("telegram API returned non-200", "status", resp.StatusCode)
+		respBody, _ := io.ReadAll(resp.Body)
+		slog.Error("telegram API returned non-200", "status", resp.StatusCode, "body", string(respBody), "symbol", trade.Symbol, "side", trade.Side)
 	}
 }
 
