@@ -57,9 +57,10 @@ type positionResponse struct {
 }
 
 type portfolioResponse struct {
-	Cash       float64            `json:"cash"`
-	TotalValue float64            `json:"total_value"`
-	Positions  []positionResponse `json:"positions"`
+	Cash        float64            `json:"cash"`
+	TotalValue  float64            `json:"total_value"`
+	RealizedPL  float64            `json:"realized_pl"`
+	Positions   []positionResponse `json:"positions"`
 }
 
 func (s *Server) handlePortfolio(w http.ResponseWriter, r *http.Request) {
@@ -83,9 +84,15 @@ func (s *Server) handlePortfolio(w http.ResponseWriter, r *http.Request) {
 		return positions[i].Symbol < positions[j].Symbol
 	})
 
+	realizedPL, err := s.store.GetTotalRealizedPnL()
+	if err != nil {
+		slog.Error("failed to get realized pnl", "error", err)
+	}
+
 	writeJSON(w, http.StatusOK, portfolioResponse{
 		Cash:       state.Cash,
 		TotalValue: totalValue,
+		RealizedPL: realizedPL,
 		Positions:  positions,
 	})
 }

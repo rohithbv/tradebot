@@ -91,6 +91,7 @@
       <div class="metric"><div class="label">Cash</div><div class="value" id="m-cash">--</div></div>
       <div class="metric"><div class="label">Total Value</div><div class="value" id="m-total">--</div></div>
       <div class="metric"><div class="label">Unrealized P&amp;L</div><div class="value" id="m-pnl">--</div></div>
+      <div class="metric"><div class="label">Realized P&amp;L</div><div class="value" id="m-realized-pnl">--</div></div>
       <div class="metric"><div class="label">Positions</div><div class="value" id="m-positions">--</div></div>
     </div>
     <div style="overflow-x:auto;margin-top:12px">
@@ -169,6 +170,7 @@ async function updatePortfolio() {
     let totalPL = 0;
     if (d.positions) d.positions.forEach(p => totalPL += p.unrealized_pl);
     fmtPL(totalPL, document.getElementById('m-pnl'));
+    fmtPL(d.realized_pl || 0, document.getElementById('m-realized-pnl'));
     const pb = document.getElementById('positions-body');
     pb.innerHTML = '';
     if (d.positions && d.positions.length > 0) {

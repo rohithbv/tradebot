@@ -25,6 +25,7 @@ type Store interface {
 	LoadAnalyses() (map[string]model.Analysis, error)
 	SaveWatchlist(symbols []string) error
 	LoadWatchlist() ([]string, error)
+	GetTotalRealizedPnL() (float64, error)
 	Close() error
 }
 
@@ -434,6 +435,16 @@ func (s *SQLiteStore) LoadWatchlist() ([]string, error) {
 		return nil, fmt.Errorf("unmarshal watchlist: %w", err)
 	}
 	return symbols, nil
+}
+
+// GetTotalRealizedPnL returns the sum of realized_pnl across all trades.
+func (s *SQLiteStore) GetTotalRealizedPnL() (float64, error) {
+	var total float64
+	err := s.db.QueryRow(`SELECT COALESCE(SUM(realized_pnl), 0) FROM trades`).Scan(&total)
+	if err != nil {
+		return 0, fmt.Errorf("sum realized pnl: %w", err)
+	}
+	return total, nil
 }
 
 // Close closes the underlying database connection.
